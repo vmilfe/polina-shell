@@ -1,18 +1,13 @@
-use iced::futures::future::Select;
 use iced::widget::{
-    center, column, combo_box, scrollable, text, text_editor, vertical_space, Container,
+    column, text, text_editor, Container,
 };
-use iced::{Application, Center, Element, Fill};
+use iced::Element;
 
-use std::env;
-use std::default;
 use std::process;
 
-use iced::widget::container::Style;
 use iced::widget::text_editor::Action;
 use iced::widget::text_editor::Edit;
-use iced::widget::{button, container, text_input, Column};
-use iced::{Color, Theme};
+use iced::widget::container;
 
 use crate::handler::shell::{Commands, SystemCall};
 
@@ -25,7 +20,6 @@ pub enum Message {
     Edit(text_editor::Action),
 }
 const TERM_PREFIX: &str = "ilya@polina# ";
-
 
 impl MainWindow {
     pub fn new() -> MainWindow {
@@ -70,7 +64,7 @@ impl MainWindow {
                                 Commands::get_last_command_frame(TERM_PREFIX, &self.text_data),
                             )
                             .execute();
-                            
+
                             for system_call in command_result {
                                 match system_call {
                                     SystemCall::Display(log) => {
@@ -80,15 +74,13 @@ impl MainWindow {
                                             Some(&"\n".to_string()),
                                             None,
                                         );
-                                    },
+                                    }
                                     SystemCall::Exit => {
                                         process::exit(0); // exit code
                                     }
                                     _ => {}
                                 }
                             }
-                            
-                            
                         }
                         _ => {
                             self.text_data.perform(message_action.clone());

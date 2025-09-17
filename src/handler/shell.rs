@@ -1,7 +1,5 @@
-use std::env;
 use std::collections::HashMap;
-use iced::widget::shader::wgpu::core::command;
-use regex::Regex;
+use std::env;
 
 use iced::widget::text_editor::Content;
 
@@ -11,7 +9,7 @@ pub enum Commands {
     Cd(Vec<String>, Option<HashMap<String, String>>),
     Exit,
     Clear,
-    NotFound(String)
+    NotFound(String),
 }
 
 pub enum SystemCall {
@@ -24,7 +22,7 @@ impl Commands {
     fn format_command_args_to_env(
         &self,
         command: &Vec<String>,
-        extra: Option<&HashMap<String, String>>
+        extra: Option<&HashMap<String, String>>,
     ) -> Vec<String> {
         let mut result_vec = Vec::new();
 
@@ -49,22 +47,32 @@ impl Commands {
         result_vec
     }
 
-
     pub fn execute(&self) -> Vec<SystemCall> {
         match self {
             Commands::Ls(command, extra) => {
-                let replaced_args: Vec<String> = self.format_command_args_to_env(&command, extra.as_ref());
-                vec![SystemCall::Display(format!("Ls directory into {:?}", replaced_args))]
+                let replaced_args: Vec<String> =
+                    self.format_command_args_to_env(&command, extra.as_ref());
+                vec![SystemCall::Display(format!(
+                    "Ls directory into {:?}",
+                    replaced_args
+                ))]
             }
             Commands::Cd(command, extra) => {
-                let replaced_args: Vec<String> = self.format_command_args_to_env(&command, extra.as_ref());
-                vec![SystemCall::Display(format!("Changing directory to {:?}", replaced_args))]
+                let replaced_args: Vec<String> =
+                    self.format_command_args_to_env(&command, extra.as_ref());
+                vec![SystemCall::Display(format!(
+                    "Changing directory to {:?}",
+                    replaced_args
+                ))]
             }
             Commands::Exit => {
                 vec![SystemCall::Exit]
             }
             Commands::NotFound(command) => {
-                vec![SystemCall::Display(format!("{}: command not found", command))]
+                vec![SystemCall::Display(format!(
+                    "{}: command not found",
+                    command
+                ))]
             }
             Commands::Clear => {
                 vec![SystemCall::Clear]
@@ -84,9 +92,7 @@ impl Commands {
 
         match parts[0] {
             "ls" => Commands::Ls(args, None),
-            "cd" => {
-                Commands::Cd(args, None)
-            },
+            "cd" => Commands::Cd(args, None),
             "exit" => Commands::Exit,
             _ => Commands::NotFound(parts[0].to_string()),
         }
