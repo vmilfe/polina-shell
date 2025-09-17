@@ -11,4 +11,5 @@ ex:
 cargo build && ./target/debug/polina-shell --storage ./storage --startapp ./storage/home.pl 
 ```
 storage: VFS file system
+
 startapp: script for auto running
