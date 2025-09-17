@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::env;
+use std::{env, vec};
 
 use iced::widget::text_editor::Content;
 
@@ -10,12 +10,14 @@ pub enum Commands {
     Exit,
     Clear,
     NotFound(String),
+    Null,
 }
 
 pub enum SystemCall {
     Display(String),
     Clear,
     Exit,
+    DisplayNewLine,
 }
 
 impl Commands {
@@ -52,30 +54,36 @@ impl Commands {
             Commands::Ls(command, extra) => {
                 let replaced_args: Vec<String> =
                     self.format_command_args_to_env(&command, extra.as_ref());
-                vec![SystemCall::Display(format!(
-                    "Ls directory into {:?}",
-                    replaced_args
-                ))]
+                vec![
+                    SystemCall::DisplayNewLine,
+                    SystemCall::Display(format!("Ls directory into {:?}", replaced_args)),
+                    SystemCall::DisplayNewLine,
+                ]
             }
             Commands::Cd(command, extra) => {
                 let replaced_args: Vec<String> =
                     self.format_command_args_to_env(&command, extra.as_ref());
-                vec![SystemCall::Display(format!(
-                    "Changing directory to {:?}",
-                    replaced_args
-                ))]
+                vec![
+                    SystemCall::DisplayNewLine,
+                    SystemCall::Display(format!("Changing directory to {:?}", replaced_args)),
+                    SystemCall::DisplayNewLine,
+                ]
             }
             Commands::Exit => {
                 vec![SystemCall::Exit]
             }
             Commands::NotFound(command) => {
-                vec![SystemCall::Display(format!(
-                    "{}: command not found",
-                    command
-                ))]
+                vec![
+                    SystemCall::DisplayNewLine,
+                    SystemCall::Display(format!("{}: command not found", command)),
+                    SystemCall::DisplayNewLine,
+                ]
             }
             Commands::Clear => {
                 vec![SystemCall::Clear]
+            }
+            Commands::Null => {
+                vec![SystemCall::DisplayNewLine]
             }
         }
     }
@@ -88,13 +96,21 @@ impl Commands {
 
     pub fn parse_from_string(input: String) -> Commands {
         let parts: Vec<&str> = input.split_whitespace().collect();
-        let args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+        let mut args: Vec<String> = vec![];
 
-        match parts[0] {
-            "ls" => Commands::Ls(args, None),
-            "cd" => Commands::Cd(args, None),
-            "exit" => Commands::Exit,
-            _ => Commands::NotFound(parts[0].to_string()),
+        if parts.len() > 0 {
+            args = parts[1..].iter().map(|s| s.to_string()).collect();
+        }
+
+        if parts.len() == 0 {
+            Commands::Null
+        } else {
+            match parts[0] {
+                "ls" => Commands::Ls(args, None),
+                "cd" => Commands::Cd(args, None),
+                "exit" => Commands::Exit,
+                _ => Commands::NotFound(parts.get(0).unwrap_or(&"null").to_string()),
+            }
         }
     }
 }
