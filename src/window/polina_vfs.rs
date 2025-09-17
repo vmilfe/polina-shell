@@ -1,4 +1,5 @@
-use iced::widget::{column, text, text_editor, Container};
+use clap::Parser;
+use iced::widget::{button, column, text, text_editor, Container};
 use iced::{alignment, Element, Length};
 
 use std::process;
@@ -8,21 +9,30 @@ use iced::widget::text_editor::Action;
 use iced::widget::text_editor::Edit;
 
 use crate::handler::shell::{Commands, SystemCall};
+use crate::vfs::storage::VFSArgs;
+
+const TERM_PREFIX: &str = "ilya@polina# ";
 
 pub struct MainWindow {
     text_data: text_editor::Content,
+    args: VFSArgs,
+    show_start_button: bool,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Edit(text_editor::Action),
+    RunStartupScript,
 }
-const TERM_PREFIX: &str = "ilya@polina# ";
 
 impl MainWindow {
     pub fn new() -> MainWindow {
+        let shell_args = VFSArgs::parse();
+
         Self {
             text_data: text_editor::Content::with_text(TERM_PREFIX),
+            args: shell_args.clone(),
+            show_start_button: shell_args.startapp.clone().is_some(),
         }
     }
 
@@ -86,13 +96,28 @@ impl MainWindow {
                     },
                     Action::Select(key) => {
                         self.text_data.perform(message_action.clone());
-                        println!("{:?} motion", key);
                     }
                     _ => {
-                        println!("{:?} from under call", update);
                         self.text_data.perform(message_action.clone());
                     }
                 }
+            }
+            Message::RunStartupScript => {
+                self.text_data
+                    .perform(text_editor::Action::Move(text_editor::Motion::End));
+
+                for command in self.args.get_init_commands() {
+                    if command.starts_with('#') {
+                        continue;
+                    }
+
+                    for char in command.chars() {
+                        self.update(Message::Edit(text_editor::Action::Edit(Edit::Insert(char))));
+                    }
+                    self.update(Message::Edit(text_editor::Action::Edit(Edit::Enter)));
+                }
+
+                self.show_start_button = false;
             }
         }
     }
@@ -102,6 +127,23 @@ impl MainWindow {
         let subtitle = text("Интерфейс для взаимодействия с виртуальной командной оболочкой")
             .size(16)
             .shaping(iced::widget::text::Shaping::Advanced);
+        
+        let start_button_container: Container<Message> = if let Some(startapp) = &self.args.startapp
+        {
+            if self.show_start_button {
+                container(
+                    button(text(format!("Запустить startapp-скрипт: {}", startapp)))
+                        .on_press(Message::RunStartupScript),
+                )
+                .width(Length::Fill)
+                .align_x(alignment::Horizontal::Right)
+                .padding([0, 15])
+            } else {
+                container(text(""))
+            }
+        } else {
+            container(text(""))
+        };
 
         let title_container: Container<Message> = container(column![title, subtitle])
             .padding([15, 25])
@@ -123,7 +165,12 @@ impl MainWindow {
         let developer_container: Container<Message> =
             container(column![developer]).padding([15, 15]);
 
-        let interface = column![title_container, commands_container, developer_container];
+        let interface = column![
+            title_container,
+            commands_container,
+            start_button_container,
+            developer_container
+        ];
 
         interface.into()
     }

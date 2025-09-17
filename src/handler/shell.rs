@@ -105,11 +105,15 @@ impl Commands {
         if parts.len() == 0 {
             Commands::Null
         } else {
-            match parts[0] {
-                "ls" => Commands::Ls(args, None),
-                "cd" => Commands::Cd(args, None),
-                "exit" => Commands::Exit,
-                _ => Commands::NotFound(parts.get(0).unwrap_or(&"null").to_string()),
+            if parts[0].starts_with('#') {
+                Commands::Null
+            } else {
+                match parts[0] {
+                    "ls" => Commands::Ls(args, None),
+                    "cd" => Commands::Cd(args, None),
+                    "exit" => Commands::Exit,
+                    _ => Commands::NotFound(parts.get(0).unwrap_or(&"null").to_string()),
+                }
             }
         }
     }

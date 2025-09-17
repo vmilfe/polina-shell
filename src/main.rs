@@ -1,5 +1,6 @@
 mod handler;
 mod window;
+mod vfs;
 
 use window::polina_vfs::MainWindow;
 
