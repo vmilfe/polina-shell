@@ -17,6 +17,8 @@ pub enum SystemCall {
     Display(String),
     Clear,
     Exit,
+    ChangeDir(Vec<String>),
+    ListDir(Vec<String>),
     DisplayNewLine,
 }
 
@@ -54,10 +56,10 @@ impl Commands {
             Commands::Ls(command, extra) => {
                 let replaced_args: Vec<String> =
                     self.format_command_args_to_env(&command, extra.as_ref());
+
                 vec![
                     SystemCall::DisplayNewLine,
-                    SystemCall::Display(format!("Ls directory into {:?}", replaced_args)),
-                    SystemCall::DisplayNewLine,
+                    SystemCall::ListDir(replaced_args)
                 ]
             }
             Commands::Cd(command, extra) => {
@@ -65,8 +67,7 @@ impl Commands {
                     self.format_command_args_to_env(&command, extra.as_ref());
                 vec![
                     SystemCall::DisplayNewLine,
-                    SystemCall::Display(format!("Changing directory to {:?}", replaced_args)),
-                    SystemCall::DisplayNewLine,
+                    SystemCall::ChangeDir(replaced_args.clone())
                 ]
             }
             Commands::Exit => {

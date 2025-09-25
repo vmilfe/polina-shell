@@ -9,13 +9,14 @@ use iced::widget::text_editor::Action;
 use iced::widget::text_editor::Edit;
 
 use crate::handler::shell::{Commands, SystemCall};
-use crate::vfs::storage::VFSArgs;
+use crate::vfs::storage::{VFSArgs, VFSNode, VFS};
 
 const TERM_PREFIX: &str = "ilya@polina# ";
 
 pub struct MainWindow {
     text_data: text_editor::Content,
     args: VFSArgs,
+    vfs: Option<VFS>,
     show_start_button: bool,
 }
 
@@ -28,10 +29,15 @@ pub enum Message {
 impl MainWindow {
     pub fn new() -> MainWindow {
         let shell_args = VFSArgs::parse();
+        let vfs = shell_args
+            .storage
+            .clone()
+            .and_then(|path| VFS::new(path).ok());
 
         Self {
             text_data: text_editor::Content::with_text(TERM_PREFIX),
             args: shell_args.clone(),
+            vfs,
             show_start_button: shell_args.startapp.clone().is_some(),
         }
     }
@@ -76,6 +82,71 @@ impl MainWindow {
 
                             for system_call in command_result {
                                 match system_call {
+                                    SystemCall::ChangeDir(command_args) => {
+                                        if self.vfs.is_none() {
+                                            self.custom_message(
+                                                &format!("VFS storage not set"),
+                                                None,
+                                                Some(&"\n".to_string()),
+                                            );
+                                            return;
+                                        }
+                                        match self.vfs.as_mut() {
+                                            Some(vfs) => match vfs.change_dir(command_args) {
+                                                Ok(_) => {}
+                                                Err(err) => {
+                                                    self.custom_message(
+                                                        &format!("cd: {}", err.to_string()),
+                                                        None,
+                                                        Some(&"\n".to_string()),
+                                                    );
+                                                }
+                                            },
+                                            None => {}
+                                        }
+                                    }
+                                    SystemCall::ListDir(command_args) => {
+                                        let dirs_result = match self.vfs.as_mut() {
+                                            Some(vfs) => vfs.list_dir(command_args),
+                                            None => {
+                                                self.custom_message(
+                                                    &format!("VFS storage not set"),
+                                                    None,
+                                                    Some(&"\n".to_string()),
+                                                );
+                                                return;
+                                            }
+                                        };
+
+                                        let mut names_vec: Vec<String> = vec![];
+                                    
+                                        match dirs_result {
+                                            Ok(dirs) => {
+                                                for dir in dirs {
+                                                    match dir {
+                                                        VFSNode::File { name } | VFSNode::Dir { name, .. } => {
+                                                            names_vec.push(name.clone());
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            Err(err) => {
+                                                return self.custom_message(
+                                                    &format!("ls: {}", err.to_string()),
+                                                    None,
+                                                    Some(&"\n".to_string()),
+                                                );
+                                            }
+                                        }
+
+                                        if !names_vec.is_empty() {
+                                            for name in names_vec {
+                                                self.custom_message(&name.to_string(), None, Some(&" ".to_string()));
+                                            }
+                                            self.custom_message(&"\n".to_string(), None, None);
+                                        }
+                                    }
+                                    
                                     SystemCall::Display(log) => {
                                         self.custom_message(&log, None, None);
                                     }
@@ -127,7 +198,7 @@ impl MainWindow {
         let subtitle = text("Интерфейс для взаимодействия с виртуальной командной оболочкой")
             .size(16)
             .shaping(iced::widget::text::Shaping::Advanced);
-        
+
         let start_button_container: Container<Message> = if let Some(startapp) = &self.args.startapp
         {
             if self.show_start_button {
