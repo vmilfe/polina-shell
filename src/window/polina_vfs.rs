@@ -58,7 +58,7 @@ impl MainWindow {
     }
 
     fn get_shell_prefix(vfs_user: String) -> String {
-        format!("{}@{}# ", vfs_user, OS_NAME)
+        format!("[{}@{}]# ", vfs_user, OS_NAME)
     }
 
     fn custom_message(&mut self, message: &String, start: Option<&String>, end: Option<&String>) {
