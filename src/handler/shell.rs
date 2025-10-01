@@ -9,6 +9,8 @@ pub enum Commands {
     Cd(Vec<String>, Option<HashMap<String, String>>),
     Exit,
     Clear,
+    Whoami,
+    History,
     NotFound(String),
     Null,
 }
@@ -17,6 +19,8 @@ pub enum SystemCall {
     Display(String),
     Clear,
     Exit,
+    Whoami,
+    History,
     ChangeDir(Vec<String>),
     ListDir(Vec<String>),
     DisplayNewLine,
@@ -59,7 +63,7 @@ impl Commands {
 
                 vec![
                     SystemCall::DisplayNewLine,
-                    SystemCall::ListDir(replaced_args)
+                    SystemCall::ListDir(replaced_args),
                 ]
             }
             Commands::Cd(command, extra) => {
@@ -67,7 +71,7 @@ impl Commands {
                     self.format_command_args_to_env(&command, extra.as_ref());
                 vec![
                     SystemCall::DisplayNewLine,
-                    SystemCall::ChangeDir(replaced_args.clone())
+                    SystemCall::ChangeDir(replaced_args.clone()),
                 ]
             }
             Commands::Exit => {
@@ -77,6 +81,20 @@ impl Commands {
                 vec![
                     SystemCall::DisplayNewLine,
                     SystemCall::Display(format!("{}: command not found", command)),
+                    SystemCall::DisplayNewLine,
+                ]
+            }
+            Commands::Whoami => {
+                vec![
+                    SystemCall::DisplayNewLine,
+                    SystemCall::Whoami,
+                    SystemCall::DisplayNewLine,
+                ]
+            }
+            Commands::History => {
+                vec![
+                    SystemCall::DisplayNewLine,
+                    SystemCall::History,
                     SystemCall::DisplayNewLine,
                 ]
             }
@@ -113,6 +131,9 @@ impl Commands {
                     "ls" => Commands::Ls(args, None),
                     "cd" => Commands::Cd(args, None),
                     "exit" => Commands::Exit,
+                    "clear" => Commands::Clear,
+                    "whoami" => Commands::Whoami,
+                    "history" => Commands::History,
                     _ => Commands::NotFound(parts.get(0).unwrap_or(&"null").to_string()),
                 }
             }

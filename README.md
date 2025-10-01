@@ -1,15 +1,22 @@
 # Polina Shell - GUI Shell in Rust
 
-Polina Shell is a GUI shell written in Rust, created for the educational project `Конфигурационное управление (часть 1/1) [I.25-26]`.
+**Polina Shell** is a GUI shell written in Rust, created for the educational project _Конфигурационное управление (часть 1/1) [I.25-26]_.
 
-
-dev: critical
-
+## Comple and run
+```
+cargo build
+cargo run
+```
 ## How to run scripts? 
-ex: 
 ```
-cargo build && ./target/debug/polina-shell --storage ./storage --startapp ./storage/home.pl 
+cargo build
+./target/debug/polina-shell --storage ./storage --startapp ./storage/home.pl 
 ```
-storage: VFS file system
 
-startapp: script for auto running
+### Args
+- `storage` - VFS file system
+- `startapp` - pre-prepared shell script
+
+## Dev info
+- variant `1`
+- group `IKBO-65-24`

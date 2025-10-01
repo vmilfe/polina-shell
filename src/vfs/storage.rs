@@ -28,9 +28,9 @@ pub enum VFSNode {
 }
 pub struct VFS {
     root: VFSNode,
+    pub user: String,
     sys_path_name: String,
-    current_path: String,
-    history: Vec<String>,
+    current_path: String
 }
 
 impl VFSArgs {
@@ -48,7 +48,7 @@ impl VFSArgs {
 }
 
 impl VFS {
-    pub fn new(storage_path: String) -> Result<Self, Error> {
+    pub fn new(user: String, storage_path: String) -> Result<Self, Error> {
         let mut root = VFSNode::Dir {
             name: "/".to_string(),
             children: vec![],
@@ -57,9 +57,9 @@ impl VFS {
 
         Ok(VFS {
             root: root,
+            user,
             sys_path_name: storage_path.clone(),
-            current_path: "/".to_string(),
-            history: vec![],
+            current_path: "/".to_string()
         })
     }
 
@@ -160,7 +160,6 @@ impl VFS {
         for obj in parts {
             match current_obj {
                 VFSNode::Dir { children, .. } => {
-                    println!("{:?}", current_obj);
                     if let Some(child) = children.iter().find(|c| match c {
                         VFSNode::Dir { name, .. } => name == obj,
                         VFSNode::File { name } => name == obj,
@@ -234,19 +233,20 @@ impl VFS {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_init() {
-        let vfs = VFS::new("./storage".to_string()).unwrap();
+        let vfs = VFS::new("".to_string(), "./storage".to_string()).unwrap();
         println!("{:?} {}", vfs.root, vfs.current_path);
     }
 
     #[test]
     fn test_found_dir() {
-        let mut vfs = VFS::new("./storage".to_string()).unwrap();
+        let mut vfs = VFS::new("".to_string(),"./storage".to_string()).unwrap();
         vfs.get_node_from_path(&"/".to_string());
         vfs.get_node_from_path(&"xd/double/r".to_string());
         vfs.get_node_from_path(&"/xddddd".to_string());

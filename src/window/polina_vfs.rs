@@ -1,6 +1,7 @@
 use clap::Parser;
 use iced::widget::{button, column, text, text_editor, Container};
 use iced::{alignment, Element, Length};
+use once_cell::sync::Lazy;
 
 use std::process;
 
@@ -11,12 +12,15 @@ use iced::widget::text_editor::Edit;
 use crate::handler::shell::{Commands, SystemCall};
 use crate::vfs::storage::{VFSArgs, VFSNode, VFS};
 
-const TERM_PREFIX: &str = "ilya@polina# ";
+const SHELL_USER: &str = "ilya";
+const OS_NAME: &str = "polina";
 
 pub struct MainWindow {
     text_data: text_editor::Content,
     args: VFSArgs,
+    user: String,
     vfs: Option<VFS>,
+    history: Vec<String>,
     show_start_button: bool,
 }
 
@@ -32,14 +36,29 @@ impl MainWindow {
         let vfs = shell_args
             .storage
             .clone()
-            .and_then(|path| VFS::new(path).ok());
+            .and_then(|path| VFS::new(SHELL_USER.to_string(), path).ok());
+
+        let vfs_user: String;
+
+        match vfs {
+            Some(ref vfs) => vfs_user = vfs.user.clone(),
+            None => vfs_user = "".to_string(),
+        }
 
         Self {
-            text_data: text_editor::Content::with_text(TERM_PREFIX),
+            text_data: text_editor::Content::with_text(
+                Lazy::new(|| MainWindow::get_shell_prefix(vfs_user.clone())).as_str(),
+            ),
             args: shell_args.clone(),
             vfs,
+            user: vfs_user,
+            history: vec![],
             show_start_button: shell_args.startapp.clone().is_some(),
         }
+    }
+
+    fn get_shell_prefix(vfs_user: String) -> String {
+        format!("{}@{}# ", vfs_user, OS_NAME)
     }
 
     fn custom_message(&mut self, message: &String, start: Option<&String>, end: Option<&String>) {
@@ -62,23 +81,39 @@ impl MainWindow {
                 match message_action {
                     Action::Edit(data_type) => match data_type {
                         Edit::Backspace => {
+                            // TODO: very bad method (use Lazy::new), change it in future
                             let text = self
                                 .text_data
                                 .text()
-                                .split(TERM_PREFIX)
+                                .split(
+                                    Lazy::new(|| MainWindow::get_shell_prefix(self.user.clone()))
+                                        .as_str(),
+                                )
                                 .last()
-                                .unwrap_or(TERM_PREFIX)
+                                .unwrap_or(
+                                    Lazy::new(|| MainWindow::get_shell_prefix(self.user.clone()))
+                                        .as_str(),
+                                )
                                 .to_string();
+
                             if text.len() > 1 {
                                 self.text_data.perform(message_action.clone());
                             }
                         }
                         Edit::Enter => {
                             // its bad method, user can write {TERM_PREFIX} and function return bad result
-                            let command_result = Commands::parse_from_string(
-                                Commands::get_last_command_frame(TERM_PREFIX, &self.text_data),
-                            )
-                            .execute();
+                            let command = Commands::get_last_command_frame(
+                                Lazy::new(|| MainWindow::get_shell_prefix(self.user.clone()))
+                                    .as_str(),
+                                &self.text_data,
+                            );
+                            self.history.push(command.clone());
+
+                            if self.history.len() > 30 {
+                                self.history.remove(0);
+                            }
+
+                            let command_result = Commands::parse_from_string(command).execute();
 
                             for system_call in command_result {
                                 match system_call {
@@ -119,12 +154,13 @@ impl MainWindow {
                                         };
 
                                         let mut names_vec: Vec<String> = vec![];
-                                    
+
                                         match dirs_result {
                                             Ok(dirs) => {
                                                 for dir in dirs {
                                                     match dir {
-                                                        VFSNode::File { name } | VFSNode::Dir { name, .. } => {
+                                                        VFSNode::File { name }
+                                                        | VFSNode::Dir { name, .. } => {
                                                             names_vec.push(name.clone());
                                                         }
                                                     }
@@ -141,17 +177,43 @@ impl MainWindow {
 
                                         if !names_vec.is_empty() {
                                             for name in names_vec {
-                                                self.custom_message(&name.to_string(), None, Some(&" ".to_string()));
+                                                self.custom_message(
+                                                    &name.to_string(),
+                                                    None,
+                                                    Some(&" ".to_string()),
+                                                );
                                             }
                                             self.custom_message(&"\n".to_string(), None, None);
                                         }
                                     }
-                                    
+                                    SystemCall::Whoami => {
+                                        self.custom_message(&self.user.clone(), None, None);
+                                    }
+                                    SystemCall::History => {
+                                        for (index, command) in
+                                            self.history.clone().iter().enumerate()
+                                        {
+                                            let mut command = command.clone(); 
+
+                                            if index + 1 == self.history.len() {
+                                                command = command.replace("\n", "");
+                                            }
+
+                                            self.custom_message(
+                                                &format!("{}: {}", index + 1, command).to_string(),
+                                                None,
+                                                None,
+                                            );
+                                        }
+                                    }
                                     SystemCall::Display(log) => {
                                         self.custom_message(&log, None, None);
                                     }
                                     SystemCall::Exit => {
                                         process::exit(0); // exit code
+                                    }
+                                    SystemCall::Clear => {
+                                        self.text_data = text_editor::Content::new();
                                     }
                                     SystemCall::DisplayNewLine => {
                                         self.custom_message(&"\n".to_string(), None, None);
@@ -159,7 +221,11 @@ impl MainWindow {
                                     _ => {}
                                 }
                             }
-                            self.custom_message(&TERM_PREFIX.to_string(), None, None);
+                            self.custom_message(
+                                &MainWindow::get_shell_prefix(self.user.clone()),
+                                None,
+                                None,
+                            );
                         }
                         _ => {
                             self.text_data.perform(message_action.clone());
