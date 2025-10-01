@@ -2,7 +2,7 @@
 
 **Polina Shell** is a GUI shell written in Rust, created for the educational project _Конфигурационное управление (часть 1/1) [I.25-26]_.
 
-## Comple and run
+## Build and Run
 ```
 cargo build
 cargo run
