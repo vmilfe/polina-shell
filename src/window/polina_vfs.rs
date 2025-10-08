@@ -3,6 +3,7 @@ use iced::widget::{button, column, text, text_editor, Container};
 use iced::{alignment, Element, Length};
 use once_cell::sync::Lazy;
 
+use std::collections::HashMap;
 use std::process;
 
 use iced::widget::container;
@@ -12,8 +13,10 @@ use iced::widget::text_editor::Edit;
 use crate::handler::shell::{Commands, SystemCall};
 use crate::vfs::storage::{VFSArgs, VFSNode, VFS};
 
-const SHELL_USER: &str = "ilya";
+
+pub const SHELL_USER: &str = "root";
 const OS_NAME: &str = "polina";
+
 
 pub struct MainWindow {
     text_data: text_editor::Content,
@@ -140,7 +143,13 @@ impl MainWindow {
                                             None => {}
                                         }
                                     }
-                                    SystemCall::ListDir(command_args) => {
+                                    SystemCall::ListDir(mut command_args) => {
+                                        let mut owner_info = false;
+                                        if command_args.contains(&"-l".to_string()) {
+                                            command_args.retain(|&ref x| x != "-l");
+                                            owner_info = true;
+                                        } 
+
                                         let dirs_result = match self.vfs.as_mut() {
                                             Some(vfs) => vfs.list_dir(command_args),
                                             None => {
@@ -153,15 +162,15 @@ impl MainWindow {
                                             }
                                         };
 
-                                        let mut names_vec: Vec<String> = vec![];
+                                        let mut names_map: HashMap<String, String> = HashMap::new();
 
                                         match dirs_result {
                                             Ok(dirs) => {
                                                 for dir in dirs {
                                                     match dir {
-                                                        VFSNode::File { name }
-                                                        | VFSNode::Dir { name, .. } => {
-                                                            names_vec.push(name.clone());
+                                                        VFSNode::File { name, owner }
+                                                        | VFSNode::Dir { name, owner, ..} => {
+                                                            names_map.insert(name.to_string(), owner.to_string());
                                                         }
                                                     }
                                                 }
@@ -175,15 +184,26 @@ impl MainWindow {
                                             }
                                         }
 
-                                        if !names_vec.is_empty() {
-                                            for name in names_vec {
-                                                self.custom_message(
-                                                    &name.to_string(),
-                                                    None,
-                                                    Some(&" ".to_string()),
-                                                );
+                                        if !names_map.is_empty() {
+                                            for (name, owner) in names_map {
+                                                if owner_info {
+                                                    self.custom_message(
+                                                        &format!("{} {}", owner, name),
+                                                        None,
+                                                        Some(&"\n".to_string()),
+                                                    );
+                                                } else {
+                                                    self.custom_message(
+                                                        &name.to_string(),
+                                                        None,
+                                                        Some(&" ".to_string()),
+                                                    );
+                                                }
+                                                
                                             }
-                                            self.custom_message(&"\n".to_string(), None, None);
+                                            if !owner_info {
+                                                self.custom_message(&"\n".to_string(), None, None);
+                                            }
                                         }
                                     }
                                     SystemCall::Whoami => {
@@ -218,6 +238,34 @@ impl MainWindow {
                                     SystemCall::DisplayNewLine => {
                                         self.custom_message(&"\n".to_string(), None, None);
                                     }
+                                    SystemCall::ChangeOwner(command_args) => {
+                                        let user = command_args[0].clone();
+                                        let path = command_args[1].clone();
+                                       
+                                        match self.vfs.as_mut() {
+                                            Some(vfs) => {
+                                                match vfs.set_node_owner(path, user) {
+                                                    Err(error) => {
+                                                        self.custom_message(
+                                                            &format!("chown: {}", error),
+                                                            Some(&"\n".to_string()),
+                                                            None
+                                                        );
+                                                    },
+                                                    Ok(_) => {}
+                                                }
+                                            }
+                                            None => {
+                                                self.custom_message(
+                                                    &format!("VFS storage not set"),
+                                                    None,
+                                                    Some(&"\n".to_string()),
+                                                );
+                                                return;
+                                            }
+                                        }
+                                    }
+                                    
                                     _ => {}
                                 }
                             }
@@ -231,7 +279,7 @@ impl MainWindow {
                             self.text_data.perform(message_action.clone());
                         }
                     },
-                    Action::Select(key) => {
+                    Action::Select(_) => {
                         self.text_data.perform(message_action.clone());
                     }
                     _ => {

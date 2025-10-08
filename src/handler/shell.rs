@@ -7,6 +7,7 @@ use iced::widget::text_editor::Content;
 pub enum Commands {
     Ls(Vec<String>, Option<HashMap<String, String>>),
     Cd(Vec<String>, Option<HashMap<String, String>>),
+    Chown(Vec<String>),
     Exit,
     Clear,
     Whoami,
@@ -23,6 +24,7 @@ pub enum SystemCall {
     History,
     ChangeDir(Vec<String>),
     ListDir(Vec<String>),
+    ChangeOwner(Vec<String>),
     DisplayNewLine,
 }
 
@@ -104,6 +106,22 @@ impl Commands {
             Commands::Null => {
                 vec![SystemCall::DisplayNewLine]
             }
+            Commands::Chown(commands) => {
+                if commands.len() != 2 {
+                    return vec![
+                        SystemCall::DisplayNewLine,
+                        SystemCall::Display(format!("chown: need 2 arguments")),
+                        SystemCall::DisplayNewLine,
+                        SystemCall::Display(format!("example: chown root home.pl")),
+                        SystemCall::DisplayNewLine,
+                    ];
+                }
+
+                vec![
+                    SystemCall::ChangeOwner(commands.clone()),
+                    SystemCall::DisplayNewLine
+                ]
+            }
         }
     }
 
@@ -121,21 +139,18 @@ impl Commands {
             args = parts[1..].iter().map(|s| s.to_string()).collect();
         }
 
-        if parts.len() == 0 {
+        if parts.len() == 0 || parts[0].starts_with('#') {
             Commands::Null
         } else {
-            if parts[0].starts_with('#') {
-                Commands::Null
-            } else {
-                match parts[0] {
-                    "ls" => Commands::Ls(args, None),
-                    "cd" => Commands::Cd(args, None),
-                    "exit" => Commands::Exit,
-                    "clear" => Commands::Clear,
-                    "whoami" => Commands::Whoami,
-                    "history" => Commands::History,
-                    _ => Commands::NotFound(parts.get(0).unwrap_or(&"null").to_string()),
-                }
+            match parts[0] {
+                "ls" => Commands::Ls(args, None),
+                "cd" => Commands::Cd(args, None),
+                "exit" => Commands::Exit,
+                "clear" => Commands::Clear,
+                "whoami" => Commands::Whoami,
+                "history" => Commands::History,
+                "chown" => Commands::Chown(args),
+                _ => Commands::NotFound(parts.get(0).unwrap_or(&"null").to_string()),
             }
         }
     }

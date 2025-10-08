@@ -1,10 +1,11 @@
 use clap::Parser;
 
-use std::env::current_exe;
 use std::fs::{self, File};
 use std::io::Error;
 use std::io::{self, BufRead, ErrorKind};
 use std::path::Path;
+
+use crate::window::polina_vfs::{SHELL_USER};
 
 // paths
 #[derive(Parser, Debug, Clone)]
@@ -20,10 +21,12 @@ pub struct VFSArgs {
 pub enum VFSNode {
     File {
         name: String,
+        owner: String
     },
     Dir {
         name: String,
         children: Vec<VFSNode>,
+        owner: String
     },
 }
 pub struct VFS {
@@ -52,6 +55,7 @@ impl VFS {
         let mut root = VFSNode::Dir {
             name: "/".to_string(),
             children: vec![],
+            owner: SHELL_USER.to_string()
         };
         VFS::init_dir_reader(storage_path.clone(), &mut root).unwrap();
 
@@ -65,7 +69,7 @@ impl VFS {
 
     fn init_dir_reader(sys_path: String, node: &mut VFSNode) -> std::io::Result<()> {
         match node {
-            VFSNode::Dir { name: _, children } => {
+            VFSNode::Dir { owner, name: _, children } => {
                 for entry in fs::read_dir(sys_path)? {
                     let entry = entry?;
                     let entry_path = entry.path();
@@ -75,10 +79,12 @@ impl VFS {
                         VFSNode::Dir {
                             name: entry_name.clone(),
                             children: vec![],
+                            owner: owner.to_string()
                         }
                     } else {
                         VFSNode::File {
                             name: entry_name.clone(),
+                            owner: owner.to_string()
                         }
                     };
 
@@ -93,7 +99,7 @@ impl VFS {
                 }
             }
 
-            VFSNode::File { name: _ } => {}
+            VFSNode::File { name: _, owner: _ } => {}
         }
 
         Ok(())
@@ -109,7 +115,7 @@ impl VFS {
                 VFSNode::Dir { children, .. } => {
                     for child in children {
                         match child {
-                            VFSNode::Dir { name, .. } | VFSNode::File { name } => {
+                            VFSNode::Dir { name, owner: _, ..} | VFSNode::File { name, owner: _ } => {
                                 path.push(name.clone());
                             }
                         }
@@ -140,8 +146,8 @@ impl VFS {
         }
     }
 
-    fn get_node_from_path(&mut self, path: &String) -> Result<&VFSNode, Error> {
-        let mut current_obj: &VFSNode = &self.root;
+    fn get_node_from_path(&mut self, path: &String) -> Result<&mut VFSNode, Error> {
+        let mut current_obj: &mut VFSNode = &mut self.root;
 
         let full_path = if path.starts_with("/") {
             path.clone()
@@ -154,15 +160,15 @@ impl VFS {
         let parts: Vec<&str> = full_path.split("/").filter(|s| !s.is_empty()).collect();
 
         if parts.len() == 0 {
-            return Ok(&self.root);
+            return Ok(current_obj);
         }
 
         for obj in parts {
             match current_obj {
                 VFSNode::Dir { children, .. } => {
-                    if let Some(child) = children.iter().find(|c| match c {
+                    if let Some(child) = children.iter_mut().find(|c| match c {
                         VFSNode::Dir { name, .. } => name == obj,
-                        VFSNode::File { name } => name == obj,
+                        VFSNode::File { name, owner: _ } => name == obj,
                     }) {
                         current_obj = child;
                     } else {
@@ -223,13 +229,28 @@ impl VFS {
 
         let node = self.get_node_from_path(&path)?;
         match node {
-            VFSNode::Dir { name: _, children } => {
+            VFSNode::Dir { name: _, owner: _, children } => {
                 Ok(children)
             }
-            VFSNode::File { name } => {
+            VFSNode::File { name, owner: _ } => {
                 return Err(Error::new(ErrorKind::InvalidInput, format!("{}: not a dir", name)));
             }
         }
+    }
+
+    pub fn set_node_owner(&mut self, node_path: String, new_owner: String) -> Result<(), Error> {
+        let node_ref = self.get_node_from_path(&node_path)?;
+
+        match node_ref {
+            VFSNode::Dir { owner, .. } => {
+                *owner = new_owner;
+            }
+            VFSNode::File { owner, .. } => {
+                *owner = new_owner;
+            }
+        };
+
+        Ok(())
     }
 }
 
@@ -247,9 +268,9 @@ mod tests {
     #[test]
     fn test_found_dir() {
         let mut vfs = VFS::new("".to_string(),"./storage".to_string()).unwrap();
-        vfs.get_node_from_path(&"/".to_string());
-        vfs.get_node_from_path(&"xd/double/r".to_string());
-        vfs.get_node_from_path(&"/xddddd".to_string());
-        vfs.get_node_from_path(&"test/second_dir".to_string());
+        let _ = vfs.get_node_from_path(&"/".to_string());
+        let _ = vfs.get_node_from_path(&"xd/double/r".to_string());
+        let _ = vfs.get_node_from_path(&"/xddddd".to_string());
+        let _ = vfs.get_node_from_path(&"test/second_dir".to_string());
     }
 }
